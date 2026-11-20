@@ -1,0 +1,50 @@
+
+name: DISTRICT Android Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.4.1
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find Godot project
+        id: project
+        run: |
+          PROJECT_FILE=$(find . -name project.godot -not -path '*/.godot/*' | head -n 1)
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "ERROR: project.godot not found"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          echo "path=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          echo "Found project: $PROJECT_DIR"
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Import project
+        run: godot --headless --editor --path "${{ steps.project.outputs.path }}" --quit
+
+      - name: Export Android APK
+        run: |
+          godot --headless \
+            --path "${{ steps.project.outputs.path }}" \
+            --export-debug "Android" "$GITHUB_WORKSPACE/build/DISTRICT.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DISTRICT-Android-APK
+          path: build/DISTRICT.apk
+          if-no-files-found: error
